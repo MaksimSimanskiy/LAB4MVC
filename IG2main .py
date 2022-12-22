@@ -14,6 +14,12 @@ from PySide2.QtWidgets import (
     QLabel,
     QHeaderView,
     QDateEdit,
+    QTabWidget
+)
+from PySide2.QtCore import (
+    QAbstractTableModel,
+    Signal,
+    Slot,
 )
 from PySide2.QtCore import QSortFilterProxyModel, Qt, QRect
 import sys
@@ -57,7 +63,7 @@ class DateBase:
             """INSERT INTO Car VALUES("2KLBN52QWER186109", "Нива", "Тревел", "Черный")"""
         )
         self.q.exec_(
-            """INSERT INTO Car VALUES("3KLBN52QWER186109", "УАЗ", "Патриот", "Синий")"""
+            """INSERT INTO Car VALUES("3KLBN52QWER186109", "УАЗ", "УАЗ", "Синий")"""
         )
         self.q.exec_(
             """INSERT INTO Owner VALUES("3130675567", "Cиманский М.Ю", "09.09.1999", "0719568675")"""
@@ -80,6 +86,8 @@ class DateBase:
 
 
 class TableView:
+    tabBarClicked = Signal(int)
+
     def __init__(self, parent):
         self.parent = parent
         self.SetupUI()
@@ -89,13 +97,6 @@ class TableView:
     def SetupUI(self):
         self.parent.setGeometry(400, 500, 1000, 650)
         self.parent.setWindowTitle("Транспортная служба Ставропольского Края")
-        self.query = """SELECT * FROM Car"""
-        self.raw_model = QSqlTableModel()
-        self.sqlquery = QSqlQuery()
-        self.sqlquery.exec_(self.query)
-        self.raw_model.setQuery(self.sqlquery)
-        self.model = QSortFilterProxyModel()
-        self.model.setSourceModel(self.raw_model)
         self.main_conteiner = QGridLayout()
         self.frame1 = QFrame()
         self.frame2 = QFrame()
@@ -115,29 +116,37 @@ class TableView:
             """
         )
         self.table_view = QTableView()
-        self.table_view.setModel(self.model)
+        self.table_view.setModel(self.tableCar())
+        self.table_view2 = QTableView()
+        self.table_view2.setModel(self.tableOwner())
+        self.table_view3 = QTableView()
+        self.table_view3.setModel(self.tableDocs())
         self.table_view.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.table_view.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         self.table_view.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         self.table_view.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        self.table_view3.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table_view3.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.table_view3.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.table_view3.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        self.table_view2.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table_view2.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.table_view2.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.table_view2.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
         self.layout_main = QGridLayout(self.frame1)
         self.layh = QHBoxLayout()
-        self.btn1 = QPushButton("Данные о автомобилях")
-        self.btn2 = QPushButton("Данные о владельцах")
-        self.btn3 = QPushButton("Данные о документах")
         self.btn_add = QPushButton("Добавить")
         self.btn_del = QPushButton("Удалить")
-        self.layh.addWidget(self.btn1)
-        self.layh.addWidget(self.btn2)
-        self.layh.addWidget(self.btn3)
         self.layh.addWidget(self.btn_add)
         self.layh.addWidget(self.btn_del)
-        self.layout_main.addWidget(self.table_view, 0, 0)
+        self.tab_conteiner = QTabWidget()
+        self.tab_conteiner.setTabShape(QTabWidget.Triangular)
+        self.tab_conteiner.addTab(self.table_view, "Автомобили")
+        self.tab_conteiner.addTab(self.table_view2, "Владельцы")
+        self.tab_conteiner.addTab(self.table_view3, "Документы")
+        self.layout_main.addWidget(self.tab_conteiner, 0, 0)
         self.layout_main.addLayout(self.layh, 1, 0)
         self.parent.setLayout(self.main_conteiner)
-        self.btn1.clicked.connect(self.tableCar)
-        self.btn2.clicked.connect(self.tableOwner)
-        self.btn3.clicked.connect(self.tableDocs)
         self.btn_del.clicked.connect(self.delete)
         self.btn_add.clicked.connect(self.add)
         self.layout_grid = QGridLayout(self.frame2)
@@ -162,7 +171,7 @@ class TableView:
         self.marka_line = QLineEdit()
         self.marka = QLabel("Марка авто: ")
         self.model_line = QLineEdit()
-        self.model = QLabel("Модель: ")
+        self.models = QLabel("Модель: ")
         self.docs_reg = QLabel("Дата выдачи документа: ")
         self.docs_reg_line = QDateEdit()
         self.docs_reg_line.setCalendarPopup(True)
@@ -179,7 +188,7 @@ class TableView:
         self.layout_grid.addWidget(self.marka_line, 3, 1)
         self.layout_grid.addWidget(self.marka, 3, 0)
         self.layout_grid.addWidget(self.model_line, 4, 1)
-        self.layout_grid.addWidget(self.model, 4, 0)
+        self.layout_grid.addWidget(self.models, 4, 0)
         self.layout_grid.addWidget(self.line_pasport, 5, 1)
         self.layout_grid.addWidget(self.pasport, 5, 0)
         self.layout_grid.addWidget(self.vin_line, 6, 1)
@@ -194,27 +203,41 @@ class TableView:
         self.layout_grid.addWidget(self.btn_otmena, 10, 0)
         self.btn_otmena.clicked.connect(self.back)
         self.btn_add2.clicked.connect(self.add_data)
+        self.tab_conteiner.tabBarClicked.connect(self.handle_tabbar_clicked)
 
     def tableCar(self):
+        self.raw_model = QSqlTableModel()
+        self.sqlquery = QSqlQuery()
         self.query = """SELECT * FROM Car"""
         self.sqlquery.exec_(self.query)
         self.raw_model.setQuery(self.sqlquery)
         self.current_tab = "Car"
-        self.tab_id = "VIN-номер"
+        self.model = QSortFilterProxyModel()
+        self.model.setSourceModel(self.raw_model)
+        return self.model
 
     def tableOwner(self):
+        self.raw_model = QSqlTableModel()
+        self.sqlquery = QSqlQuery()
         self.query = """SELECT * FROM Owner"""
         self.sqlquery.exec_(self.query)
         self.raw_model.setQuery(self.sqlquery)
         self.current_tab = "Owner"
-        self.tab_id = "Номер удостоверения"
+        self.model = QSortFilterProxyModel()
+        self.model.setSourceModel(self.raw_model)
+        return self.model
 
     def tableDocs(self):
+        self.raw_model = QSqlTableModel()
+        self.sqlquery = QSqlQuery()
         self.query = """SELECT * FROM Docs"""
         self.sqlquery.exec_(self.query)
         self.raw_model.setQuery(self.sqlquery)
         self.current_tab = "Docs"
         self.tab_id = "Номер удостоверения"
+        self.model = QSortFilterProxyModel()
+        self.model.setSourceModel(self.raw_model)
+        return self.model
 
     def add(self):
         self.frame1.setVisible(False)
@@ -225,11 +248,13 @@ class TableView:
         self.frame2.setVisible(False)
 
     def update(self):
-        self.tableOwner()
-        self.tableDocs()
-        self.tableCar()
+        self.table_view.setModel(self.tableCar())
+        self.table_view2.setModel(self.tableOwner())
+        self.table_view3.setModel(self.tableDocs())
+
 
     def add_data(self):
+        self.sqlquery = QSqlQuery()
         self.query = "INSERT INTO Car VALUES('{}', '{}', '{}', '{}')".format(self.marka_line.text(), self.vin_line.text(), self.marka_line.text(), self.color_line.text())
         self.sqlquery.exec_(self.query)
         self.query = "INSERT INTO Owner VALUES('{}', '{}', '{}', '{}')".format(self.doc_num_line.text(), self.line_name.text(), self.dateb_line.text(), self.line_pasport.text())
@@ -241,13 +266,30 @@ class TableView:
         self.frame2.setVisible(False)
 
     def cell_click(self):
-        return self.table_view.model().data(self.table_view.currentIndex())
+        if self.current_tab == "Car":
+            return self.table_view.model().data(self.table_view.currentIndex())
+        if self.current_tab == "Docs":
+            return self.table_view3.model().data(self.table_view3.currentIndex())
+        if self.current_tab == "Owner":
+            return self.table_view2.model().data(self.table_view2.currentIndex())
 
     def delete(self):
+        self.sqlquery = QSqlQuery()
         self.query = f"""DELETE FROM {self.current_tab} WHERE ("{self.tab_id}" = "{self.cell_click()}")"""
+        print(self.query)
         self.sqlquery.exec_(self.query)
         self.update()
 
+    def handle_tabbar_clicked(self, index):
+        if(index==0):
+            self.current_tab = "Car"
+            self.tab_id = "VIN-номер"
+        elif(index==1):
+            self.current_tab = "Owner"
+            self.tab_id = "Номер удостоверения"
+        else:
+            self.tab_id = "Номер удостоверения"
+            self.current_tab = "Docs"
 
 class MainWindow(QWidget):
     def __init__(self) -> None:
